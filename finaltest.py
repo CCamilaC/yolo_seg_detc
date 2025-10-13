@@ -12,12 +12,12 @@ import psutil
 print(tf.config.list_physical_devices('GPU'))
 
 
-save_path = "/home/user1/MohamedAbdeltawabsThesis"
+save_path = "/path_to_parent_folder"
 os.makedirs(save_path, exist_ok=True)
 # flag2 for wheather we ar in first place or second , flag unused till now, models and getvv camera ready
 flag2=False
 flag=False
-model = YOLO("/home/user1/MohamedAbdeltawabsThesis/JSON2YOLO/runs/segment/train7/weights/best.pt") 
+model = YOLO("/path_to/JSON2YOLO/runs/segment/train7/weights/best.pt") 
 model2= YOLO("yolov8n.pt")
 pipeline = rs.pipeline()
 config = rs.config()
