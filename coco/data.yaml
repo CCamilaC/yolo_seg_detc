@@ -1,0 +1,6 @@
+train: /home/user1/MohamedAbdeltawabsThesis/coco/images/train
+val: /home/user1/MohamedAbdeltawabsThesis/coco/images/valid
+test: /home/user1/MohamedAbdeltawabsThesis/coco/images/test
+
+nc: 4  # ← change this to your actual number of classes
+names: ["bushes", "pavement", "street","universitypavement"]  # ← replace with your real class names
