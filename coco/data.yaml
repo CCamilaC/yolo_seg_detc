@@ -1,6 +1,8 @@
-train: /path_to/coco/images/train
-val: /path_to/coco/images/valid
-test: /path_to/coco/images/test
+train: /content/Yolo_Probe_Detector/coco/images/train
+val: /content/Yolo_Probe_Detector/coco/images/val
+test: /content/Yolo_Probe_Detector/coco/images/test
 
-nc: 4  # ← change this to your actual number of classes
-names: ["bushes", "pavement", "street","universitypavement"]  # ← replace with your real class names
+nc: 1
+names: ['probe']
+
+
