@@ -1,306 +1,121 @@
-# test6
 import cv2 as cv
 import numpy as np
 import pyrealsense2 as rs
 from ultralytics import YOLO
-import csv
 import os
-import time 
-import torch
-import  tensorflow as tf
+import time
 import psutil
-print(tf.config.list_physical_devices('GPU'))
+import torch
 
-
-save_path = "/path_to_parent_folder"
+# Save path for frames
+save_path = "/home/camila/yolo_detc_seg/RealSense-Camera-Based-Pavement-Segmentation-and-Centre-Point-Generation-Dynamic-Object-Detection/JSON2YOLO/runs/segment/train2/"
 os.makedirs(save_path, exist_ok=True)
-# flag2 for wheather we ar in first place or second , flag unused till now, models and getvv camera ready
-flag2=False
-flag=False
-model = YOLO("/path_to/JSON2YOLO/runs/segment/train7/weights/best.pt") 
-model2= YOLO("yolov8n.pt")
+
+flag2 = False
+
+# Load YOLOv8 **detection** weights
+model = YOLO(
+    "/home/camila/yolo_detc_seg/RealSense-Camera-Based-Pavement-Segmentation-and-Centre-Point-Generation-Dynamic-Object-Detection/JSON2YOLO/runs/segment/train2/weights/best(1).pt"
+)
+model.to("cpu")
+
+# RealSense setup
 pipeline = rs.pipeline()
 config = rs.config()
 config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-
 config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 60)
 pipeline.start(config)
+
 fourcc = cv.VideoWriter_fourcc(*'XVID')
 out = cv.VideoWriter('output.avi', fourcc, 30.0, (640, 480))
 process = psutil.Process(os.getpid())
 frame_count = 0
 
-#first we segment and search to the point (not flag2) - if point found flag2=true then segment and
-#  update the point for any exceptions , error , wrong values return to flag2false to find new point , either wise finish with object detection#
-while(1):
+prev_pts = None
+prev_gray = None
+
+
+while True:
     start = time.time()
     frame_count += 1
 
+    # Get frames
+    frames = pipeline.wait_for_frames()
+    color_frame = frames.get_color_frame()
+    depth_frame = frames.get_depth_frame()
+
+    frame = np.asanyarray(color_frame.get_data())
+    depth = np.asanyarray(depth_frame.get_data())
+    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+
+    # ---- YOLO DETECTION (conf >= 0.8) ----
+    results = model.predict(frame, conf=0.7)
+    result = results[0]
+    detect_img = result.plot()
+
+    boxes = result.boxes
 
     if not flag2:
-        frames = pipeline.wait_for_frames()
-        color_frame = frames.get_color_frame()
-        depth_frame = frames.get_depth_frame()
-        frame = np.asanyarray(color_frame.get_data())
-        depth= np.asanyarray(depth_frame.get_data())
-        prev_gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-        detect=model.predict(source=frame ,conf=0.5)
-        detected0=detect[0]
-        detectf=detected0.plot()
-        list1=detected0.boxes.cls
-        if len(list1)==0 :
-            print("nothing is here yet")
+        if len(boxes) == 0:
+            print("Nothing detected yet")
         else:
-            for i,object in enumerate(detected0.boxes) :
-                if object.cls ==0.0:
-                    xyupavment=object.xyxy[0].tolist()
-                    ypavment= xyupavment[3]-(((xyupavment[3]-xyupavment[1]))/2)
-                    maxx=0
-                    minx=6000
-                    xs=[] 
-                    xh=[]
-                    xl=[]
-                    # for point in (detected0.masks[i].xy[0]):
-                    #         x=int(point[0])
-                    #         xs.append(x)
-                    #         if x>maxx:
-                    #                 maxx=x
-                    #         if x<minx:
-                    #                 minx=x
-                        
-                    #         medx=(minx+maxx)/2
-                    #         for x in xs:
-                    #                 if x>medx:
-                    #                         xh.append(x)
-                    #                 if x<medx:
-                    #                         xl.append(x)
-                    #         averageh = ( np.nanmean(xh))
-                    #         averagel =( np.nanmean(xl)) 
-                    #         xpavment= (averagel+(averageh-averagel)/2)
-                    # xpavment=(xyupavment[3]+xyupavment[0])/1.75
-                    # x1=int(xpavment)
-                    # y1=int(ypavment)
-                    # x2=int(xyupavment[2])
-                    # y2=int(xyupavment[3])
-                    
+            for obj in boxes:
 
-                    # cv.rectangle(detectf, (x1, y1), (x2,y2), (255, 255, 255), -1)
-                    # maxx=0
-                    # minx=6000
-                    # xs=[] 
-                    # xh=[]
-                    # xl=[]
-                    # for point in (detected0.masks[i].xy[0]):
-                    #         x=int(point[0])
-                    #         xs.append(x)
-                    #         if x>maxx:
-                    #                 maxx=x
-                    #         if x<minx:
-                    #                 minx=x
-                        
-                    #         medx=(minx+maxx)/2
-                    #         for x in xs:
-                    #                 if x>medx:
-                    #                         xh.append(x)
-                    #                 if x<medx:
-                    #                         xl.append(x)
-                    #         averageh = ( np.nanmean(xh))
-                    #         averagel =( np.nanmean(xl)) 
-                    #         xpavment= (averagel+(averageh-averagel)/2)
-                    xs = [int(point[0]) for point in detected0.masks[i].xy[0]]
-                    minx = min(xs)
-                    maxx = max(xs)
-                    medx = (minx + maxx) / 2
+                # Skip low-confidence detections
+                if float(obj.conf) < 0.8:
+                    continue
 
-                    xs = np.array(xs)
-                    xl = xs[xs < medx]
-                    xh = xs[xs > medx]
+                cls_id = int(obj.cls)
+                if cls_id in [0, 3]:  # pavement classes
+                    x1, y1, x2, y2 = obj.xyxy[0].tolist()
 
-                    averagel = np.nanmean(xl)
-                    averageh = np.nanmean(xh)
-                    xpavment = averagel + ((averageh - averagel) / 2)
-                    print(xpavment,ypavment)
-                    fixed_point=[[xpavment,ypavment]]
-                    prev_pts = np.array([fixed_point], dtype=np.float32)
-                    flag2=True
-                    # 
-                    xx=int(xpavment)
-                    yy=int(ypavment)
-                    cv.circle(detectf, (xx, yy), radius=5, color=(255, 0, 0), thickness=-1)
-            
-                if object.cls ==3.0:
-                    print("university pavements are here")
-                    xyupavment=object.xyxy[0].tolist()
-                    ypavment= xyupavment[3]-(((xyupavment[3]-xyupavment[1]))/2)
-                    maxx=0
-                    minx=6000
-                    xs=[] 
-                    xh=[]
-                    xl=[]
-                    # for point in (detected0.masks[i].xy[0]):
-                    #         x=int(point[0])
-                    #         xs.append(x)
-                    #         if x>maxx:
-                    #                 maxx=x
-                    #         if x<minx:
-                    #                 minx=x
-                        
-                    #         medx=(minx+maxx)/2
-                    #         for x in xs:
-                    #                 if x>medx:
-                    #                         xh.append(x)
-                    #                 if x<medx:
-                    #                         xl.append(x)
-                    #         averageh = ( np.nanmean(xh))
-                    #         averagel =( np.nanmean(xl)) 
-                    #         xpavment= (averagel+(averageh-averagel)/2)
-                    # xpavment=(xyupavment[3]+xyupavment[0])/1.75
-                    # x1=int(xpavment)
-                    # y1=int(ypavment)
-                    # x2=int(xyupavment[2])
-                    # y2=int(xyupavment[3])
-                    
+                    # Midpoint of bounding box
+                    xpavement = (x1 + x2) / 2
+                    ypavement = (y1 + y2) / 2
 
-                    # cv.rectangle(detectf, (x1, y1), (x2,y2), (255, 255, 255), -1)
-                    # maxx=0
-                    # minx=6000
-                    # xs=[] 
-                    # xh=[]
-                    # xl=[]
-                    # for point in (detected0.masks[i].xy[0]):
-                    #         x=int(point[0])
-                    #         xs.append(x)
-                    #         if x>maxx:
-                    #                 maxx=x
-                    #         if x<minx:
-                    #                 minx=x
-                        
-                    #         medx=(minx+maxx)/2
-                    #         for x in xs:
-                    #                 if x>medx:
-                    #                         xh.append(x)
-                    #                 if x<medx:
-                    #                         xl.append(x)
-                    #         averageh = ( np.nanmean(xh))
-                    #         averagel =( np.nanmean(xl)) 
-                    #         xpavment= (averagel+(averageh-averagel)/2)
-                    xs = [int(point[0]) for point in detected0.masks[i].xy[0]]
-                    minx = min(xs)
-                    maxx = max(xs)
-                    medx = (minx + maxx) / 2
+                    print(xpavement, ypavement, "Conf:", float(obj.conf))
 
-                    xs = np.array(xs)
-                    xl = xs[xs < medx]
-                    xh = xs[xs > medx]
+                    prev_pts = np.array([[[xpavement, ypavement]]], dtype=np.float32)
+                    prev_gray = gray.copy()
+                    flag2 = True
 
-                    averagel = np.nanmean(xl)
-                    averageh = np.nanmean(xh)
-                    xpavment = averagel + ((averageh - averagel) / 2)
-                    print(xpavment,ypavment)
-                    fixed_point=[[xpavment,ypavment]]
-                    prev_pts = np.array([fixed_point], dtype=np.float32)
-                    flag2=True
-                    # 
-                    xx=int(xpavment)
-                    yy=int(ypavment)
-                    cv.circle(detectf, (xx, yy), radius=5, color=(255, 0, 0), thickness=-1)
-            
-
-    #                 break
-            
+                    cv.circle(detect_img, (int(xpavement), int(ypavement)),
+                              radius=5, color=(255, 0, 0), thickness=-1)
     else:
-        frames = pipeline.wait_for_frames()
-        color_frame = frames.get_color_frame()
-        depth_frame = frames.get_depth_frame()
-        gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-        frame = np.asanyarray(color_frame.get_data())
-        depth= np.asanyarray(depth_frame.get_data())
-        detect=model.predict(source=frame ,conf=0.5)
-        detected0=detect[0]
-        detectf=detected0.plot()
-        # cv.rectangle(detectf, (x1, y1), (x2,y2), (255, 255, 255), -1)
-
+        # ---- Optical Flow Tracking ----
         next_pts, status, _ = cv.calcOpticalFlowPyrLK(prev_gray, gray, prev_pts, None)
-        x, y = map(int,next_pts[0][0])
-        x_int, y_int = int(x), int(y)
-        if y>430 :
-                flag2=False
-                continue
-        # ---------- TEST----------#
-        list2=detected0.boxes.cls
+        x, y = map(int, next_pts[0][0])
 
-        try :
-            if  (0.0 or 3.0) in list2:
-                if (0.0) in list2:
-                    index= list2.index(0.0)
-                if (3.0) in list2:
-                    index= list2.index(3.0)             
-                list3=detected0.boxes[index].xyxy[0]
+        prev_pts = next_pts
+        prev_gray = gray
 
-                if (x<list3[0]+50):
-                    flag2=False
-                    continue
-                if (x>list3[2]):
-                    flag2=False
-                    continue
-        except Exception:
-            pass
+        if y > 430:
+            flag2 = False
+            continue
 
-        # ---------- TEST finished ----------#
-
-        
         try:
             depthpoint = depth_frame.get_distance(x, y)
         except Exception:
-            depthpoint=0
-            flag2=False
+            depthpoint = 0
+            flag2 = False
         else:
-            cv.circle(detectf, (x_int, y_int), radius=5, color=(0, 255, 0), thickness=-1)
-            prev_pts = next_pts
-            prev_gray = gray
+            cv.circle(detect_img, (x, y), radius=5, color=(0, 255, 0), thickness=-1)
         finally:
-            if depthpoint==0 :
-                flag2=False
+            if depthpoint == 0:
+                flag2 = False
 
+    # Display and save
+    filename = os.path.join(save_path, f"frame_{frame_count:04d}.jpg")
+    cv.imshow("detect", detect_img)
+    cv.imwrite(filename, detect_img)
 
-    # car and person detection
-    detect2=model2.predict(source=detectf,conf=0.75,classes=[0,2])
-    detectz=detect2[0].plot()
-    list1=(detect2[0].boxes.xyxy).tolist()
-        
-    for list in list1 :
-        hi=(list[0]+list[2])/2
-        bi=(list[1]+list[3])/2
-        hibi=(int(hi),int(bi))
-        distance=int(depth_frame.get_distance(int(hi),int(bi)))
-        dis=str(distance)
-        cv.putText(detectz,dis,hibi,cv.FONT_HERSHEY_COMPLEX,0.5,(255,0,0),2)
     end = time.time()
-    exec_time = end - start
-    print(frame_count)
-    print(f"Execution Time: {exec_time:.4f} seconds")
-    cpu_usage = process.cpu_percent()
-    mem_usage = process.memory_info().rss / 1024 ** 2  # in MB
-    print(f"CPU Usage: {cpu_usage:.2f}%")
-    print(f"Memory Usage: {mem_usage:.2f} MB")
-    print(f"GPU Memory Allocated: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
-    print("---------------------------------------------------------------------------------------------------------")
-    filename = os.path.join(save_path, f"frame_{frame_count:04d}.jpg")    
-    cv.imshow("segment",detectz)
-    cv.imwrite(filename,detectz)
-
-        # os.makedirs(detectz, exist_ok=True)
-        # out.write(detectf)
+    print(frame_count, f"Execution Time: {end - start:.4f} sec")
+    print(f"CPU Usage: {process.cpu_percent():.2f}%")
+    print(f"Memory Usage: {process.memory_info().rss / 1024**2:.2f} MB")
 
     if cv.waitKey(1) & 0xFF == ord('q'):
         break
+
 pipeline.stop()
-cv.destroyAllWindows
-
-    
-
-
-
-
-
-
+cv.destroyAllWindows()

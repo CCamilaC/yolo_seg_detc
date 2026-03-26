@@ -1,6 +1,6 @@
-train: /content/Yolo_Probe_Detector/coco/images/train
-val: /content/Yolo_Probe_Detector/coco/images/val
-test: /content/Yolo_Probe_Detector/coco/images/test
+train: /home/camila/yolo_detc_seg/RealSense-Camera-Based-Pavement-Segmentation-and-Centre-Point-Generation-Dynamic-Object-Detection/coco/images/train
+val: /home/camila/yolo_detc_seg/RealSense-Camera-Based-Pavement-Segmentation-and-Centre-Point-Generation-Dynamic-Object-Detection/coco/images/val
+test: /home/camila/yolo_detc_seg/RealSense-Camera-Based-Pavement-Segmentation-and-Centre-Point-Generation-Dynamic-Object-Detection/coco/images/test
 
 nc: 1
 names: ['probe']
