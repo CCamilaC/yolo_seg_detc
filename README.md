@@ -1,47 +1,33 @@
-# RealSense-Camera-Based-Pavement-Segmentation-and-Centre-Point-Genration-Dynamic-Object-Detection
+# Probe Detection Task
 
+This repository is based on this one: [RealSense Camera Based Pavement Segmentation and Centre Point Generation Dynamic Object Detection](https://github.com/swarajtendulkar10/RealSense-Camera-Based-Pavement-Segmentation-and-Centre-Point-Generation-Dynamic-Object-Detection.git)
 
-# Sensor Used
-Realsense D435i Camera
+Autor: Swaraj Tendulkar
 
-# Pre-requisites
-- **ROS 2 Humble** ([installation guide](https://docs.ros.org/en/humble/index.html))
-- **Intel RealSense ROS2 Wrapper** ([repository](https://github.com/IntelRealSense/realsense-ros))
-- **YOLOv8** (install via Ultralytics [yolov8 installation docs](https://docs.ultralytics.com/))
+## Informations 
 
-# Training the Segmentation Model
+If you want to train the model on Google Colab using an external GPU, you can use the `yolo_seg_detc.ipynb` notebook, adjusting the necessary parameters.
 
-1. Create a segmentation project on [Roboflow Universe](https://universe.roboflow.com/).
-2. Upload, annotate, and augment dataset images.
-3. Download the annotated data as a zip file.
-4. Organize the dataset as follows:
-    - 80% images: `/coco/images/train`
-    - 10% images: `/coco/images/valid`
-    - 10% images: `/coco/images/test`
-5. Update file paths in `data.yaml` accordingly.
+If you need more images, you can find them in the [Yolo_Probe_Detection](https://github.com/CCamilaC/Yolo_Probe_Detector.git) repository.
 
+A manual augmentation was added to change the color of the detected object (in this case, the Probe). For this, I used the `argumentation.py` script located in the `useful` folder.
 
-# Use the following Command to start the Training
+The `useful` folder also contains additional scripts that help with image verification and label adjustment.
+
+## Classical Vision Codes
+
+The `classical_vision.py` script is already implemented to connect to the RealSense camera, while `classical_vision_photos.py` is used to test using the photos in the dataset.
+
+### Importante 
+It is important to use a USB 3.0 port (you can verify it by checking the inside of the connector, which is blue). If you use a USB 2.0 port, you may encounter an error like the following in the code:
 ```bash
-yolo task=detect mode=train model=yolov8n.pt data=/path_to/coco/data.yaml
-
+RuntimeError: Frame didn't arrive within 5000
 ```
+## Difference Between USB 2.0 and USB 3.0
 
-# Implementation of Pavement Segmentation based Center Point Generation
+The main difference between USB 2.0 and USB 3.0 is the speed and data transfer capability.
 
-In finaltest.py update the path location (model2) to the Segmentation weight file 
-
-
-Connect the RealSense Camera and run the python file
-
-```bash
-python3 finaltest.py
-
-```
-Dynamic object detection uses the YOLOv8n model to detect persons and cars in real time.
-
-# Final Result
-
-![Segment4](https://github.com/user-attachments/assets/3627cb2a-cf88-47e1-9b64-ceeef9b67baa)
+- **USB 2.0:** up to 480 Mbps (slower)
+- **USB 3.0:** up to 5 Gbps (more than 10x faster)
 
 
